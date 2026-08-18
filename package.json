@@ -1,0 +1,36 @@
+{
+	"name": "@lanlance/pi-multi-skill",
+	"version": "0.1.0",
+	"description": "pi extension: invoke multiple skills in one /skills command — one collapsible [skill] chip per skill, plus an optional trailing message",
+	"type": "module",
+	"license": "Apache-2.0",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-coding-agent",
+		"skills",
+		"slash-command"
+	],
+	"files": [
+		"extensions/**/*.ts",
+		"README.md",
+		"README_zh.md",
+		"LICENSE"
+	],
+	"pi": {
+		"extensions": [
+			"./extensions/multi-skill.ts"
+		]
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "^0.84.1",
+		"typescript": "^7.0.2"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "^0.84.1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/L2ncE/pi-multi-skill.git"
+	}
+}
