@@ -19,10 +19,10 @@ pi 一条消息只能调用一个 skill，且必须位于首行行首；`/skill:
 本扩展让最自然的多行写法直接生效——**不用记任何新语法**：
 
 ```
+/skill:grill-me
 /skill:human-writing
-/skill:lanlance-article
 
-写一篇关于 https://blog.cloudflare.com/code-mode/ 的文章
+Explain this repo to me.
 ```
 
 一次提交：开头每个 `/skill:` 行各渲染一个可折叠 `[skill]` 标签，剩余行作为正文消息跟在最后；且全部内容在**单回合**内到达模型，没有逐个「已加载」的中间废话。

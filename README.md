@@ -21,10 +21,10 @@ This extension makes the natural multi-line form just work — **no new
 syntax to remember**:
 
 ```
+/skill:grill-me
 /skill:human-writing
-/skill:lanlance-article
 
-Write about https://blog.cloudflare.com/code-mode/
+Explain this repo to me.
 ```
 
 Submit once: each leading `/skill:` line becomes its own collapsible
