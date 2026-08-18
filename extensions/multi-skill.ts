@@ -48,6 +48,38 @@ function buildSkillBlock(skill: LoadedSkill): string {
 }
 
 export default function multiSkillExtension(api: ExtensionAPI): void {
+    // sendUserMessage(deliverAs) only queues while the session is actually
+    // streaming, and the run triggered by our previous message needs a moment
+    // to boot — sending inside that gap is rejected (error swallowed by the
+    // runtime binding). waitForIdle() also returns instantly during the gap,
+    // so delivery windows are driven by events instead: an assistant message
+    // starting to stream (queue the rest) or the run settling (send fresh).
+    let resolveStreaming: (() => void) | undefined;
+    let resolveSettled: (() => void) | undefined;
+    api.on("message_start", (event) => {
+        // message_start also fires for user messages; only an assistant
+        // message means the LLM response is actually streaming.
+        if (event.message.role === "assistant") {
+            resolveStreaming?.();
+            resolveStreaming = undefined;
+        }
+    });
+    api.on("agent_settled", () => {
+        resolveSettled?.();
+        resolveSettled = undefined;
+    });
+    const waitForDeliveryWindow = () =>
+        Promise.race([
+            new Promise<void>((resolve) => {
+                resolveStreaming = resolve;
+            }),
+            new Promise<void>((resolve) => {
+                resolveSettled = resolve;
+            }),
+            // Safety net: never wedge the command on a missed event.
+            new Promise<void>((resolve) => setTimeout(resolve, 15000)),
+        ]);
+
     api.registerCommand("skills", {
         description: "Invoke multiple skills in one message: /skills <skill> [<skill>...] [message]",
         getArgumentCompletions: (prefix) => {
@@ -86,14 +118,13 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
 
             const message = tokens.slice(messageStart).join(" ");
 
-            // The first message triggers the agent turn; the remaining skill blocks
-            // and the trailing message queue as follow-ups, so the model receives
-            // everything in order across the run.
             api.sendUserMessage(buildSkillBlock(selected[0] as LoadedSkill));
             for (const skill of selected.slice(1)) {
+                await waitForDeliveryWindow();
                 api.sendUserMessage(buildSkillBlock(skill), { deliverAs: "followUp" });
             }
             if (message) {
+                await waitForDeliveryWindow();
                 api.sendUserMessage(message, { deliverAs: "followUp" });
             }
         },
