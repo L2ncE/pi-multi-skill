@@ -38,8 +38,6 @@ pi 一条消息只能调用一个 skill，且必须位于首行行首；`/skill:
 | 开头出现未知的 skill 名 | 原样放行给核心（不拦截、无半投递） |
 | 带图片的消息 | 原样放行给核心 |
 
-同时注册显式命令 `/skills <名> [<名>...] [正文]`（Tab 补全，免写 `skill:` 前缀）。
-
 ## 安装
 
 ```bash
@@ -62,7 +60,7 @@ pi -e /path/to/pi-multi-skill/extensions/multi-skill.ts
 4. 首块正常发送触发回合，其余经事件驱动投递窗口（assistant 开始流式 /
    run 落定 / 15s 兜底）按 followUp 队列保序注入
 
-只使用公开扩展 API（`on`、`registerCommand`、`sendUserMessage`、
+只使用公开扩展 API（`on`、`sendUserMessage`、
 `getCommands` 及官方导出的 `stripFrontmatter`）。不包装编辑器、不碰私有
 缝隙，与其他编辑器类扩展零冲突。
 

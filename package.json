@@ -1,7 +1,7 @@
 {
 	"name": "@lanlance/pi-multi-skill",
 	"version": "0.1.0",
-	"description": "pi extension: invoke multiple skills in one /skills command — one collapsible [skill] chip per skill, plus an optional trailing message",
+	"description": "pi extension: stack multiple /skill:name references on leading lines of one message — each renders its own collapsible [skill] chip, remaining lines become the trailing message",
 	"type": "module",
 	"license": "Apache-2.0",
 	"keywords": [

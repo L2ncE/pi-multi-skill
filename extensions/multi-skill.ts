@@ -5,11 +5,14 @@ import { stripFrontmatter, type ExtensionAPI } from "@earendil-works/pi-coding-a
 /**
  * pi-multi-skill — invoke multiple skills with one command.
  *
- * `/skills <name> [<name>...] [message]` loads each named skill's SKILL.md
- * and delivers it as its own user message containing a standard `<skill>`
+ * `/skill:name` lines at the top of a message (one reference per line,
+ * any remaining lines as the body) are detected at submit time and each
+ * delivered as its own user message containing a standard `<skill>`
  * block, so the chat renders one collapsible `[skill]` chip per skill,
  * followed by the trailing message. Equivalent to sending
- * `/skill:<name>` once per skill plus the message by hand — in one line.
+ * `/skill:<name>` once per skill plus the message by hand — in one
+ * submission. No new syntax: anything else (single-line `/skill:name`,
+ * same-line arguments, unknown names) passes through to core untouched.
  *
  * Skill names are resolved from the session's registered skill commands
  * (`api.getCommands()`), which covers user, project, and package skills.
@@ -184,53 +187,5 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
         }
         void deliverPayloads(api, waitForDeliveryWindow, payloads, event.streamingBehavior);
         return { action: "handled" };
-    });
-
-    api.registerCommand("skills", {
-        description: "Invoke multiple skills in one message: /skills <skill> [<skill>...] [message]",
-        getArgumentCompletions: (prefix) => {
-            const lastToken = prefix.split(/\s+/).pop() ?? "";
-            const matches = resolveSkills(api)
-                .map((skill) => skill.name)
-                .filter((name) => name.startsWith(lastToken))
-                .sort()
-                .slice(0, 20);
-            if (matches.length === 0) {
-                return null;
-            }
-            return matches.map((name) => ({ value: name, label: name }));
-        },
-        handler: async (args) => {
-            const tokens = args.trim().split(/\s+/).filter(Boolean);
-            const available = new Map(resolveSkills(api).map((skill) => [skill.name, skill]));
-
-            const selected: LoadedSkill[] = [];
-            let messageStart = 0;
-            for (; messageStart < tokens.length; messageStart++) {
-                const skill = available.get(tokens[messageStart]);
-                if (!skill) {
-                    break;
-                }
-                selected.push(skill);
-            }
-
-            if (selected.length === 0) {
-                throw new Error(
-                    tokens.length === 0
-                        ? "usage: /skills <skill> [<skill>...] [message] — leading tokens naming installed skills are invoked"
-                        : `unknown skill: ${tokens[0]}`,
-                );
-            }
-
-            // Build every payload before the first send so a file-read failure
-            // can never leave a half-delivered invocation in the chat.
-            const payloads = selected.map(buildSkillBlock);
-            const message = tokens.slice(messageStart).join(" ");
-            if (message) {
-                payloads.push(message);
-            }
-
-            await deliverPayloads(api, waitForDeliveryWindow, payloads);
-        },
     });
 }

@@ -41,9 +41,6 @@ what you'd get by sending the messages by hand — in one submission.
 | unknown skill name in leading position | passed through to core (no partial sends, no interception) |
 | messages with images | passed through to core |
 
-An explicit `/skills <name> [<name>...] [message]` command is also
-registered (Tab-completes names, no `skill:` prefix needed).
-
 ## Install
 
 ```bash
@@ -68,8 +65,8 @@ pi -e /path/to/pi-multi-skill/extensions/multi-skill.ts
    behind an event-driven delivery window (assistant streaming started /
    run settled / 15s safety net), preserving order.
 
-Pure public extension APIs (`on`, `registerCommand`, `sendUserMessage`,
-`getCommands`, and the officially exported `stripFrontmatter`). No editor
+Pure public extension APIs (`on`, `sendUserMessage`, `getCommands`,
+and the officially exported `stripFrontmatter`). No editor
 wrapping, no private seams, no conflict with other editor extensions.
 
 ## License
