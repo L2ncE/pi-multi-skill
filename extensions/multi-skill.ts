@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { stripFrontmatter, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /**
  * pi-multi-skill — invoke multiple skills with one command.
@@ -23,19 +23,23 @@ interface LoadedSkill {
     baseDir: string;
 }
 
+/** First match wins, matching the core `/skill:name` lookup order. */
 function resolveSkills(api: ExtensionAPI): LoadedSkill[] {
-    return api
-        .getCommands()
-        .filter((command) => command.source === "skill" && command.name.startsWith(SKILL_COMMAND_PREFIX))
-        .map((command) => ({
-            name: command.name.slice(SKILL_COMMAND_PREFIX.length),
-            filePath: command.sourceInfo.path,
-            baseDir: command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path),
-        }));
-}
-
-function stripFrontmatter(content: string): string {
-    return content.replace(/^---\n[\s\S]*?\n---\n?/, "");
+    const skills = new Map<string, LoadedSkill>();
+    for (const command of api.getCommands()) {
+        if (command.source !== "skill" || !command.name.startsWith(SKILL_COMMAND_PREFIX)) {
+            continue;
+        }
+        const name = command.name.slice(SKILL_COMMAND_PREFIX.length);
+        if (!skills.has(name)) {
+            skills.set(name, {
+                name,
+                filePath: command.sourceInfo.path,
+                baseDir: command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path),
+            });
+        }
+    }
+    return [...skills.values()];
 }
 
 /**
@@ -54,6 +58,12 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
     // runtime binding). waitForIdle() also returns instantly during the gap,
     // so delivery windows are driven by events instead: an assistant message
     // starting to stream (queue the rest) or the run settling (send fresh).
+    //
+    // ponytail: single delivery-window slot — two overlapping /skills
+    // invocations would clobber each other's waiters. Unreachable today:
+    // extension commands only dispatch while the agent is idle, and the
+    // first send re-activates it. If commands ever become queueable, make
+    // the coordinator invocation-scoped.
     let resolveStreaming: (() => void) | undefined;
     let resolveSettled: (() => void) | undefined;
     api.on("message_start", (event) => {
@@ -61,24 +71,40 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
         // message means the LLM response is actually streaming.
         if (event.message.role === "assistant") {
             resolveStreaming?.();
-            resolveStreaming = undefined;
         }
     });
     api.on("agent_settled", () => {
         resolveSettled?.();
-        resolveSettled = undefined;
     });
-    const waitForDeliveryWindow = () =>
-        Promise.race([
+    const waitForDeliveryWindow = () => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const clear = () => {
+            clearTimeout(timer);
+            resolveStreaming = undefined;
+            resolveSettled = undefined;
+        };
+        return Promise.race([
             new Promise<void>((resolve) => {
-                resolveStreaming = resolve;
+                resolveStreaming = () => {
+                    clear();
+                    resolve();
+                };
             }),
             new Promise<void>((resolve) => {
-                resolveSettled = resolve;
+                resolveSettled = () => {
+                    clear();
+                    resolve();
+                };
             }),
             // Safety net: never wedge the command on a missed event.
-            new Promise<void>((resolve) => setTimeout(resolve, 15000)),
+            new Promise<void>((resolve) => {
+                timer = setTimeout(() => {
+                    clear();
+                    resolve();
+                }, 15000);
+            }),
         ]);
+    };
 
     api.registerCommand("skills", {
         description: "Invoke multiple skills in one message: /skills <skill> [<skill>...] [message]",
@@ -101,7 +127,7 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
             const selected: LoadedSkill[] = [];
             let messageStart = 0;
             for (; messageStart < tokens.length; messageStart++) {
-                const skill = available.get(tokens[messageStart] as string);
+                const skill = available.get(tokens[messageStart]);
                 if (!skill) {
                     break;
                 }
@@ -116,16 +142,18 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
                 );
             }
 
+            // Build every payload before the first send so a file-read failure
+            // can never leave a half-delivered invocation in the chat.
+            const payloads = selected.map(buildSkillBlock);
             const message = tokens.slice(messageStart).join(" ");
-
-            api.sendUserMessage(buildSkillBlock(selected[0] as LoadedSkill));
-            for (const skill of selected.slice(1)) {
-                await waitForDeliveryWindow();
-                api.sendUserMessage(buildSkillBlock(skill), { deliverAs: "followUp" });
-            }
             if (message) {
+                payloads.push(message);
+            }
+
+            api.sendUserMessage(payloads[0]);
+            for (const payload of payloads.slice(1)) {
                 await waitForDeliveryWindow();
-                api.sendUserMessage(message, { deliverAs: "followUp" });
+                api.sendUserMessage(payload, { deliverAs: "followUp" });
             }
         },
     });
