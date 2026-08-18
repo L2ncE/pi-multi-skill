@@ -35,5 +35,9 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/L2ncE/pi-multi-skill.git"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
 	}
 }
