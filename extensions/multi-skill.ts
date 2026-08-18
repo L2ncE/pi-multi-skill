@@ -35,7 +35,9 @@ function resolveSkills(api: ExtensionAPI): LoadedSkill[] {
             skills.set(name, {
                 name,
                 filePath: command.sourceInfo.path,
-                baseDir: command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path),
+                // Match the core /skill: expansion, which uses the skill's own
+                // directory (SKILL.md parent), not the source scan root.
+                baseDir: dirname(command.sourceInfo.path),
             });
         }
     }
@@ -49,6 +51,66 @@ function resolveSkills(api: ExtensionAPI): LoadedSkill[] {
 function buildSkillBlock(skill: LoadedSkill): string {
     const body = stripFrontmatter(readFileSync(skill.filePath, "utf-8")).trim();
     return `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
+}
+
+/** A line that is exactly one skill reference, e.g. `/skill:human-writing`. */
+const SKILL_LINE_PATTERN = /^\/skill:([a-z0-9][a-z0-9-]*)$/;
+
+/**
+ * Plan the transparent enhancement for a submitted message: leading lines
+ * that are each a bare `/skill:name` reference become one `<skill>` block
+ * payload each, the remaining lines become the trailing message. Returns
+ * null when the message is not this shape — callers must then leave core
+ * behavior untouched.
+ *
+ * This also repairs a core parser gap: `_expandSkillCommand` splits the
+ * command from its arguments on the first space only, so
+ * `/skill:name` + newline + text silently degrades to a plain message.
+ */
+function planInvocation(text: string, api: ExtensionAPI): string[] | null {
+    const lines = text.trim().split("\n");
+    if (lines.length < 2 || !SKILL_LINE_PATTERN.test(lines[0].trim())) {
+        return null;
+    }
+    const available = new Map(resolveSkills(api).map((skill) => [skill.name, skill]));
+    const blocks: string[] = [];
+    let bodyStart = 0;
+    for (; bodyStart < lines.length; bodyStart++) {
+        const match = SKILL_LINE_PATTERN.exec(lines[bodyStart].trim());
+        if (!match || !available.has(match[1])) {
+            break;
+        }
+        blocks.push(buildSkillBlock(available.get(match[1]) as LoadedSkill));
+    }
+    if (blocks.length === 0) {
+        return null;
+    }
+    const body = lines.slice(bodyStart).join("\n").trim();
+    return body ? [...blocks, body] : blocks;
+}
+
+/**
+ * Deliver payloads in order. When queued from streaming input, everything
+ * queues via the given behavior; when idle, the first payload triggers the
+ * run and the rest wait for a delivery window.
+ */
+async function deliverPayloads(
+    api: ExtensionAPI,
+    waitForDeliveryWindow: () => Promise<void>,
+    payloads: string[],
+    streamingBehavior?: "steer" | "followUp",
+): Promise<void> {
+    if (streamingBehavior) {
+        for (const payload of payloads) {
+            api.sendUserMessage(payload, { deliverAs: streamingBehavior });
+        }
+        return;
+    }
+    api.sendUserMessage(payloads[0]);
+    for (const payload of payloads.slice(1)) {
+        await waitForDeliveryWindow();
+        api.sendUserMessage(payload, { deliverAs: "followUp" });
+    }
 }
 
 export default function multiSkillExtension(api: ExtensionAPI): void {
@@ -106,6 +168,24 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
         ]);
     };
 
+    api.on("input", (event) => {
+        // Images are not remuxed into the enhanced delivery; degrade to core.
+        if (event.images?.length) {
+            return { action: "continue" };
+        }
+        let payloads: string[] | null = null;
+        try {
+            payloads = planInvocation(event.text, api);
+        } catch {
+            return { action: "continue" };
+        }
+        if (!payloads) {
+            return { action: "continue" };
+        }
+        void deliverPayloads(api, waitForDeliveryWindow, payloads, event.streamingBehavior);
+        return { action: "handled" };
+    });
+
     api.registerCommand("skills", {
         description: "Invoke multiple skills in one message: /skills <skill> [<skill>...] [message]",
         getArgumentCompletions: (prefix) => {
@@ -150,11 +230,7 @@ export default function multiSkillExtension(api: ExtensionAPI): void {
                 payloads.push(message);
             }
 
-            api.sendUserMessage(payloads[0]);
-            for (const payload of payloads.slice(1)) {
-                await waitForDeliveryWindow();
-                api.sendUserMessage(payload, { deliverAs: "followUp" });
-            }
+            await deliverPayloads(api, waitForDeliveryWindow, payloads);
         },
     });
 }
