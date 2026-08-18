@@ -1,6 +1,8 @@
 <div align="center">
 
-**[pi](https://pi.dev) 的多行 `/skill:` —— 自然输入，堆叠加载。**
+<img src="assets/logo.png" alt="pi-multi-skill" width="280"/>
+
+**一条消息堆叠多个 `/skill:` —— 单回合，每个 skill 一个折叠块。**
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![CI](https://github.com/L2ncE/pi-multi-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/L2ncE/pi-multi-skill/actions/workflows/ci.yml)
@@ -23,9 +25,9 @@ pi 一条消息只能调用一个 skill，且必须位于首行行首；`/skill:
 写一篇关于 https://blog.cloudflare.com/code-mode/ 的文章
 ```
 
-一次提交：开头每个 `/skill:` 行各生成一条含标准 `<skill>` 块的 user message，
-聊天界面渲染为一个可折叠 `[skill]` 标签，剩余行作为正文消息跟在最后——
-与手动逐条发送完全等价，但只需一次提交。
+一次提交：开头每个 `/skill:` 行各渲染一个可折叠 `[skill]` 标签，剩余行作为正文消息跟在最后；且全部内容在**单回合**内到达模型，没有逐个「已加载」的中间废话。
+
+![pi-multi-skill 实际效果](assets/screenshot.png)
 
 ## 行为表
 

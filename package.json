@@ -15,7 +15,8 @@
 		"extensions/**/*.ts",
 		"README.md",
 		"README_zh.md",
-		"LICENSE"
+		"LICENSE",
+		"assets/*.png"
 	],
 	"pi": {
 		"extensions": [

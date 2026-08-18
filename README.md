@@ -1,6 +1,8 @@
 <div align="center">
 
-**Multi-line `/skill:` for [pi](https://pi.dev) — stack skills, type naturally.**
+<img src="assets/logo.png" alt="pi-multi-skill" width="280"/>
+
+**Stack multiple `/skill:` references in one message — one turn, one chip per skill.**
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![CI](https://github.com/L2ncE/pi-multi-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/L2ncE/pi-multi-skill/actions/workflows/ci.yml)
@@ -25,10 +27,12 @@ syntax to remember**:
 Write about https://blog.cloudflare.com/code-mode/
 ```
 
-Submit once: each leading `/skill:` line becomes its own user message with
-a standard `<skill>` block, so the chat renders one collapsible `[skill]`
-chip per skill, followed by the remaining lines as your message. Exactly
-what you'd get by sending the messages by hand — in one submission.
+Submit once: each leading `/skill:` line becomes its own collapsible
+`[skill]` chip, followed by the remaining lines as your message — and the
+whole stack reaches the model in a **single turn**, no intermediate
+"skill loaded" rounds.
+
+![pi-multi-skill in action](assets/screenshot.png)
 
 ## Behavior
 
