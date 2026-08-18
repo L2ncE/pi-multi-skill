@@ -48,6 +48,12 @@ whole stack reaches the model in a **single turn**, no intermediate
 ## Install
 
 ```bash
+pi install npm:@lanlance/pi-multi-skill
+```
+
+or via git:
+
+```bash
 pi install git:https://github.com/L2ncE/pi-multi-skill
 ```
 

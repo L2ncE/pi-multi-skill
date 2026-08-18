@@ -43,6 +43,12 @@ Explain this repo to me.
 ## 安装
 
 ```bash
+pi install npm:@lanlance/pi-multi-skill
+```
+
+或通过 git：
+
+```bash
 pi install git:https://github.com/L2ncE/pi-multi-skill
 ```
 
