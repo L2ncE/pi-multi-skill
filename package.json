@@ -1,6 +1,6 @@
 {
 	"name": "@lanlance/pi-multi-skill",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "pi extension: stack multiple /skill:name references on leading lines of one message — each renders its own collapsible [skill] chip, remaining lines become the trailing message",
 	"type": "module",
 	"license": "Apache-2.0",
