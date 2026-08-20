@@ -27,10 +27,19 @@ syntax to remember**:
 Explain this repo to me.
 ```
 
-Submit once: each leading `/skill:` line becomes its own collapsible
-`[skill]` chip, followed by the remaining lines as your message — and the
+Submit once: each `/skill:` reference becomes its own collapsible
+`[skill]` chip, followed by the remaining text as your message — and the
 whole stack reaches the model in a **single turn**, no intermediate
 "skill loaded" rounds.
+
+References work anywhere in the message — a standalone line (leading,
+middle, or trailing) or a trailing token after prose:
+
+```
+Add an AGENTS.md to this project please /skill:writing-for-agents
+
+This is a multi-repo working directory and needs an index
+```
 
 ![pi-multi-skill in action](assets/screenshot.png)
 
@@ -40,9 +49,12 @@ whole stack reaches the model in a **single turn**, no intermediate
 |---|---|
 | leading `/skill:a` / `/skill:b` lines + body (multi-line) | one `[skill]` chip each + body message — handled by this extension |
 | single `/skill:a` + body on following lines | skill chip + body — also repairs the core newline gap |
+| `/skill:a` trailing prose (`… please /skill:a`) | chip + body with the reference stripped — handled by this extension |
+| standalone `/skill:a` line in the middle/at the end | chip + remaining body — handled by this extension |
 | `/skill:a args` on one line | untouched core behavior (chip + args) |
 | bare `/skill:a` on one line | untouched core behavior |
-| unknown skill name in leading position | passed through to core (no partial sends, no interception) |
+| reference mid-line (text after it) | treated as plain text, no interception |
+| unknown skill name | reference stays in the text (no interception, no partial sends) |
 | messages with images | passed through to core |
 
 ## Install
@@ -65,19 +77,21 @@ pi -e /path/to/pi-multi-skill/extensions/multi-skill.ts
 
 ## How It Works
 
-1. An `input` event handler detects the leading-skill-lines shape and
-   takes over the submission (`{ action: "handled" }`).
+1. An `input` event handler extracts line-ending skill references
+   (standalone lines or trailing tokens after prose) and takes over the
+   submission (`{ action: "handled" }`).
 2. Skill names resolve against `api.getCommands()` (`skill:*` entries) —
    user, project, and package sources are all covered.
 3. Blocks are built with the exact format the core `/skill:` expansion
    produces, so the standard renderer draws the collapsible chips.
-4. The first block triggers the agent turn; the rest queue as follow-ups
-   behind an event-driven delivery window (assistant streaming started /
-   run settled / 15s safety net), preserving order.
+4. Every block plus the body is sent as ONE custom message (`triggerTurn`
+   fires a single turn); the custom renderer reuses the core parser and
+   chip component for each block.
 
-Pure public extension APIs (`on`, `sendUserMessage`, `getCommands`,
-and the officially exported `stripFrontmatter`). No editor
-wrapping, no private seams, no conflict with other editor extensions.
+Pure public extension APIs (`on`, `sendMessage`, `getCommands`,
+`registerMessageRenderer`, and the officially exported `parseSkillBlock` /
+`stripFrontmatter` rendering components). No editor wrapping, no private
+seams, no conflict with other editor extensions.
 
 ## License
 
